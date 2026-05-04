@@ -39,7 +39,7 @@ export default function App() {
   const connectSerial = async () => {
     try {
       const port = await navigator.serial.requestPort();
-      await port.open({ baudRate: 9600 });
+      await port.open({ baudRate: 2400 });
       portRef.current = port;
       setConnected(true);
       leesData();
@@ -81,7 +81,7 @@ export default function App() {
       setNat(prevNat => {
         if (prevNat === null) {
           const res = bereken(prevDroog, g);
-          setResultaat(res.toFixed(3));
+          setResultaat(res.toFixed(2));
           return g;
         }
         return prevNat;
