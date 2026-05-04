@@ -1,11 +1,26 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useRef } from 'react';
+import './App.css';
+
+interface SerialPort {
+  open(options: { baudRate: number }): Promise<void>;
+  readable: ReadableStream<Uint8Array>;
+  close(): Promise<void>;
+}
+
+declare global {
+  interface Navigator {
+    serial: {
+      requestPort(): Promise<SerialPort>;
+    };
+  }
+}
 
 // --- STYLING (Inline voor gemak) ---
 const styles = {
-  container: { fontFamily: 'Segoe UI, Tahoma, Geneva, Verdana, sans-serif', maxWidth: '600px', margin: '40px auto', padding: '20px', textAlign: 'center', backgroundColor: '#f9f9f9', borderRadius: '15px', boxShadow: '0 4px 15px rgba(0,0,0,0.1)' },
-  statusBadge: (connected) => ({ padding: '8px 15px', borderRadius: '20px', backgroundColor: connected ? '#d4edda' : '#f8d7da', color: connected ? '#155724' : '#721c24', fontSize: '0.9em', marginBottom: '20px', display: 'inline-block' }),
-  weightDisplay: { display: 'flex', justifyContent: 'space-around', margin: '30px 0' },
-  card: (active) => ({ padding: '20px', border: `2px solid ${active ? '#007bff' : '#eee'}`, borderRadius: '10px', backgroundColor: active ? '#fff' : '#f1f1f1', width: '40%', transition: 'all 0.3s' }),
+  container: { fontFamily: 'Segoe UI, Tahoma, Geneva, Verdana, sans-serif', maxWidth: '600px', margin: '40px auto', padding: '20px', textAlign: 'center' as const, backgroundColor: '#f9f9f9', borderRadius: '15px', boxShadow: '0 4px 15px rgba(0,0,0,0.1)' },
+  statusBadge: (connected: boolean) => ({ padding: '8px 15px', borderRadius: '20px', backgroundColor: connected ? '#d4edda' : '#f8d7da', color: connected ? '#155724' : '#721c24', fontSize: '0.9em', marginBottom: '20px', display: 'inline-block' as const }),
+  weightDisplay: { display: 'flex' as const, justifyContent: 'space-around', margin: '30px 0' },
+  card: (active: boolean) => ({ padding: '20px', border: `2px solid ${active ? '#007bff' : '#eee'}`, borderRadius: '10px', backgroundColor: active ? '#fff' : '#f1f1f1', width: '40%', transition: 'all 0.3s' }),
   resultBox: { marginTop: '30px', padding: '20px', backgroundColor: '#007bff', color: 'white', borderRadius: '10px', fontSize: '1.5em', fontWeight: 'bold' },
   button: { padding: '12px 24px', fontSize: '1em', cursor: 'pointer', backgroundColor: '#007bff', color: 'white', border: 'none', borderRadius: '5px', transition: 'background 0.3s' },
   resetBtn: { marginTop: '15px', background: 'none', border: '1px solid white', color: 'white', cursor: 'pointer', padding: '5px 10px', borderRadius: '4px' }
@@ -13,13 +28,13 @@ const styles = {
 
 export default function App() {
   const [connected, setConnected] = useState(false);
-  const [droog, setDroog] = useState(null);
-  const [nat, setNat] = useState(null);
-  const [resultaat, setResultaat] = useState(null);
-  const portRef = useRef(null);
+  const [droog, setDroog] = useState<number | null>(null);
+  const [nat, setNat] = useState<number | null>(null);
+  const [resultaat, setResultaat] = useState<string | null>(null);
+  const portRef = useRef<SerialPort | null>(null);
 
   // De formule: (nat / droog * 2307.454) - 2088.136
-  const bereken = (d, n) => ((n / d) * 2307.454) - 2088.136;
+  const bereken = (d: number, n: number): number => ((n / d) * 2307.454) - 2088.136;
 
   const connectSerial = async () => {
     try {
@@ -33,24 +48,12 @@ export default function App() {
     }
   };
 
-  const slaOpInDatabase = async (droog, nat, percentage) => {
-  try {
-    const response = await fetch('http://localhost:3001/opslaan', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ droog, nat, percentage })
-    });
-    const data = await response.json();
-    console.log(data.message);
-  } catch (error) {
-    console.error("Fout bij opslaan:", error);
-  }
-};
 
 
-  const leesData = async () => {
+  const leesData = async (): Promise<void> => {
+    if (!portRef.current) return;
     const textDecoder = new TextDecoderStream();
-    const readableStreamClosed = portRef.current.readable.pipeTo(textDecoder.writable);
+    portRef.current.readable.pipeTo(textDecoder.writable as any);
     const reader = textDecoder.readable.getReader();
 
     try {
@@ -71,7 +74,7 @@ export default function App() {
     }
   };
 
-  const verwerkMeting = (g) => {
+  const verwerkMeting = (g: number): void => {
     // We gebruiken functionele updates om de juiste state te vangen
     setDroog(prevDroog => {
       if (prevDroog === null) return g;
