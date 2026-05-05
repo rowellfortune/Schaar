@@ -1,5 +1,6 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import './App.css';
+import { initDevTools } from './devTools';
 
 interface SerialPort {
   open(options: { baudRate: number }): Promise<void>;
@@ -35,6 +36,26 @@ export default function App() {
 
   // De formule: (nat / droog * 2307.454) - 2088.136
   const bereken = (d: number, n: number): number => ((n / d) * 2307.454) - 2088.136;
+
+  const verwerkMeting = (g: number): void => {
+    // We gebruiken functionele updates om de juiste state te vangen
+    setDroog(prevDroog => {
+      if (prevDroog === null) return g;
+      setNat(prevNat => {
+        if (prevNat === null) {
+          const res = bereken(prevDroog, g);
+          setResultaat(res.toFixed());
+          return g;
+        }
+        return prevNat;
+      });
+      return prevDroog;
+    });
+  };
+
+  useEffect(() => {
+    initDevTools(verwerkMeting);
+  }, []);
 
   const connectSerial = async () => {
     try {
@@ -72,22 +93,6 @@ export default function App() {
       console.error("Fout bij lezen:", err);
       setConnected(false);
     }
-  };
-
-  const verwerkMeting = (g: number): void => {
-    // We gebruiken functionele updates om de juiste state te vangen
-    setDroog(prevDroog => {
-      if (prevDroog === null) return g;
-      setNat(prevNat => {
-        if (prevNat === null) {
-          const res = bereken(prevDroog, g);
-          setResultaat(res.toFixed());
-          return g;
-        }
-        return prevNat;
-      });
-      return prevDroog;
-    });
   };
 
   const reset = () => {
