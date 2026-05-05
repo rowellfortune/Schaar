@@ -3,11 +3,20 @@ import './App.css';
 import { initDevTools } from './devTools';
 
 interface SerialPort {
-  open(options: { baudRate: number; dataBits?: number; stopBits?: number; parity?: string }): Promise<void>;
+  open(options: { baudRate: number }): Promise<void>;
   readable: ReadableStream<Uint8Array>;
   close(): Promise<void>;
 }
 
+declare global {
+  interface Navigator {
+    serial: {
+      requestPort(): Promise<SerialPort>;
+    };
+  }
+}
+
+// --- STYLING (Inline voor gemak) ---
 const styles = {
   container: { fontFamily: 'Segoe UI, Tahoma, Geneva, Verdana, sans-serif', maxWidth: '600px', margin: '40px auto', padding: '20px', textAlign: 'center' as const, backgroundColor: '#f9f9f9', borderRadius: '15px', boxShadow: '0 4px 15px rgba(0,0,0,0.1)' },
   statusBadge: (connected: boolean) => ({ padding: '8px 15px', borderRadius: '20px', backgroundColor: connected ? '#d4edda' : '#f8d7da', color: connected ? '#155724' : '#721c24', fontSize: '0.9em', marginBottom: '20px', display: 'inline-block' as const }),
@@ -25,9 +34,11 @@ export default function App() {
   const [resultaat, setResultaat] = useState<string | null>(null);
   const portRef = useRef<SerialPort | null>(null);
 
+  // De formule: (nat / droog * 2307.454) - 2088.136
   const bereken = (d: number, n: number): number => ((n / d) * 2307.454) - 2088.136;
 
   const verwerkMeting = (g: number): void => {
+    // We gebruiken functionele updates om de juiste state te vangen
     setDroog(prevDroog => {
       if (prevDroog === null) return g;
       setNat(prevNat => {
@@ -49,13 +60,7 @@ export default function App() {
   const connectSerial = async () => {
     try {
       const port = await navigator.serial.requestPort();
-      // CRITICAL: Added dataBits: 7 and parity: 'even' to fix the "missing digits" issue
-      await (port.open as any)({
-        baudRate: 2400,
-        dataBits: 7,
-        stopBits: 1,
-        parity: 'even'
-      });
+      await port.open({ baudRate: 2400 });
       portRef.current = port;
       setConnected(true);
       leesData();
@@ -64,43 +69,29 @@ export default function App() {
     }
   };
 
+
+
   const leesData = async (): Promise<void> => {
     if (!portRef.current) return;
-
-    // Use TextDecoderStream and a pipe to handle incoming text chunks correctly
     const textDecoder = new TextDecoderStream();
     portRef.current.readable.pipeTo(textDecoder.writable as any);
     const reader = textDecoder.readable.getReader();
-
-    let buffer = '';
 
     try {
       while (true) {
         const { value, done } = await reader.read();
         if (done) break;
-        
         if (value) {
-          buffer += value;
-          // The balance sends a CR (Carriage Return) at the end of each line
-          const lines = buffer.split('\r'); 
-          buffer = lines.pop() || ''; // Keep the last partial line in the buffer
-
-          for (const line of lines) {
-            // Clean the string: remove headers (ST, QT, etc) and units (g)
-            const cleanValue = line.replace(/[^\d.-]/g, '');
-            const gewicht = parseFloat(cleanValue);
-
-            if (!isNaN(gewicht) && gewicht !== 0) {
-              verwerkMeting(gewicht);
-            }
+          // Haal getal uit de A&D string: "ST,+00123.45  g"
+          const gewicht = parseFloat(value.replace(/[^\d.-]/g, ''));
+          if (!isNaN(gewicht) && gewicht > 0.1) {
+            verwerkMeting(gewicht);
           }
         }
       }
     } catch (err) {
       console.error("Fout bij lezen:", err);
       setConnected(false);
-    } finally {
-      reader.releaseLock();
     }
   };
 
@@ -127,7 +118,7 @@ export default function App() {
           <h4>Droog</h4>
           <p style={{fontSize: '1.2em'}}>{droog ? `${droog} g` : '---'}</p>
         </div>
-        <div style={styles.card(nat !== null)}>
+        <div style={styles.card(droog !== null && nat === null)}>
           <small>STAP 2</small>
           <h4>Nat</h4>
           <p style={{fontSize: '1.2em'}}>{nat ? `${nat} g` : '---'}</p>
@@ -142,7 +133,7 @@ export default function App() {
       )}
 
       <p style={{marginTop: '20px', fontSize: '0.8em', color: '#666'}}>
-        Status: 2400 Baud, 7E1. Zorg dat de weegschaal op <strong>Auto-Print</strong> staat.
+        Zorg dat de weegschaal op <strong>Auto-Print</strong> staat.
       </p>
     </div>
   );
