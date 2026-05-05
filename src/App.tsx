@@ -81,7 +81,7 @@ export default function App() {
       setNat(prevNat => {
         if (prevNat === null) {
           const res = bereken(prevDroog, g);
-          setResultaat(res.toFixed(2));
+          setResultaat(res.toFixed());
           return g;
         }
         return prevNat;
