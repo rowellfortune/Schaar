@@ -106,7 +106,7 @@ export default function App() {
 
   return (
     <div style={styles.container}>
-      <div><img src="/src/assets/logo.png" alt="Logo" width={200} /></div>
+      <div><img src="/logo.png" alt="Logo" width={200} /></div>
       <h2>⚖️ A&D Precision App</h2>
       <div style={styles.statusBadge(connected)}>
         {connected ? '● Weegschaal Verbonden' : '○ Geen verbinding'}
