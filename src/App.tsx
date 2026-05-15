@@ -2,12 +2,6 @@ import { useState, useRef, useEffect } from 'react';
 import './App.css';
 import { initDevTools } from './devTools';
 
-interface SerialPort {
-  open(options: { baudRate: number; dataBits?: number; stopBits?: number; parity?: string }): Promise<void>;
-  readable: ReadableStream<Uint8Array>;
-  close(): Promise<void>;
-}
-
 const styles = {
   container: { fontFamily: 'Segoe UI, Tahoma, Geneva, Verdana, sans-serif', maxWidth: '600px', margin: '40px auto', padding: '20px', textAlign: 'center' as const, backgroundColor: '#f9f9f9', borderRadius: '15px', boxShadow: '0 4px 15px rgba(0,0,0,0.1)' },
   statusBadge: (connected: boolean) => ({ padding: '8px 15px', borderRadius: '20px', backgroundColor: connected ? '#d4edda' : '#f8d7da', color: connected ? '#155724' : '#721c24', fontSize: '0.9em', marginBottom: '20px', display: 'inline-block' as const }),
@@ -50,7 +44,7 @@ export default function App() {
     try {
       const port = await navigator.serial.requestPort();
       // CRITICAL: Added dataBits: 7 and parity: 'even' to fix the "missing digits" issue
-      await (port.open as any)({
+      await port.open({
         baudRate: 2400,
         dataBits: 7,
         stopBits: 1,
@@ -112,7 +106,7 @@ export default function App() {
 
   return (
     <div style={styles.container}>
-    <div><img src="/src/assets/logo.png" alt="Logo"  width={200}/></div>
+      <div><img src="/src/assets/logo.png" alt="Logo" width={200} /></div>
       <h2>⚖️ A&D Precision App</h2>
       <div style={styles.statusBadge(connected)}>
         {connected ? '● Weegschaal Verbonden' : '○ Geen verbinding'}
